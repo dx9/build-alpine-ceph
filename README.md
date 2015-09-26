@@ -1,7 +1,7 @@
 # build-alpine-ceph
-Builder for Alpine Ceph Port
+Builder for [Alpine Ceph Port](https://github.com/dx9err/ceph)
 
-I've been building this on OSX using ailispaw/boot2docker-xhyve
+I've been building this on OSX using [boot2docker-xhyve](https://github.com/ailispaw/boot2docker-xhyve)
 
 To build the port run the following:
 

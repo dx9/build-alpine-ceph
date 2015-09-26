@@ -1,0 +1,10 @@
+#!/bin/bash
+
+cd /build
+
+git clone --depth 100 --recursive https://github.com/dx9/ceph.git
+cd ceph
+mkdir -p build
+pushd build
+cmake -DWITH_GPERFTOOLS=OFF -DWITH_TCMALLOC=OFF ..
+make -j 3

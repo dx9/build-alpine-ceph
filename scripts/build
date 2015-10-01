@@ -1,10 +1,68 @@
 #!/bin/bash
 
+set -e
+
+sudo apk update
+
 cd /build
 
-git clone --depth 100 --recursive https://github.com/dx9/ceph.git
-cd ceph
-mkdir -p build
-pushd build
-cmake -DWITH_GPERFTOOLS=OFF -DWITH_TCMALLOC=OFF ..
-make -j 3
+# key stuff
+mkdir -p .abuild
+if [ ! -f .abuild/-*.rsa.pub ]; then
+     ABUILD_USERDIR=/build/.abuild  abuild-keygen -a -i -n
+fi
+export PACKAGER_PRIVKEY="$(readlink -f /build/.abuild/-*.rsa)"
+sudo cp .abuild/-*.rsa.pub /etc/apk/keys
+
+# clone aport and build testing deps
+if [ ! -d aports ]; then
+    git clone --depth=1 --branch=master git://dev.alpinelinux.org/aports
+fi
+
+pushd aports/testing/leveldb
+abuild -r
+popd
+
+#pushd aports/testing/crypto++
+#abuild -r
+#popd
+
+pushd aports/testing/libexecinfo
+abuild -r
+popd
+
+# index and sign the local repo
+apk index -o /build/packages/testing/x86_64/APKINDEX.tar.gz /build/packages/testing/x86_64/*.apk
+abuild-sign /build/packages/testing/x86_64/APKINDEX.tar.gz
+
+mkdir -p aports/testing/ceph
+
+# clone ceph
+if [ ! -d ceph ]; then
+    git clone --depth=1 --branch=master https://github.com/dx9/ceph.git
+fi
+
+pushd ceph
+
+# make source dist
+if [ ! -f ceph-9.0.3-alpine.tar.bz2 ]; then
+    src/make_version -g src/.git_version -c src/include/ceph_ver.h -n
+    src/make_version -g src/.git_version -c src/include/ceph_ver.h
+    ./make_dist.sh 9.0.3-alpine
+fi
+
+cp -f ceph-9.0.3-alpine.tar.bz2 /var/cache/distfiles
+cp -f ceph-9.0.3-alpine.tar.bz2 ../aports/testing/ceph
+cp -f src/include/ceph_ver.h ../aports/testing/ceph
+cp -f /usr/local/bin/ceph* ../aports/testing/ceph
+
+popd
+
+if [ ! -f aports/testing/ceph/APKBUILD ]; then
+    cp /usr/local/bin/APKBUILD aports/testing/ceph
+fi
+
+pushd aports/testing/ceph
+abuild checksum
+abuild -r
+popd
